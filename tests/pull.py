@@ -1,27 +1,18 @@
 #!/usr/bin/env python
-import boto
-from boto.s3.key import Key
+from test_setup import *
 
-
-s3 = boto.connect_s3(host='localhost', port=10001, is_secure=False)
 b = s3.get_bucket('mocking')
 
-k_cool = Key(b)
-k_cool.key = 'cool.html'
-content  = k_cool.get_contents_as_string()
-print content
-
-k_green = Key(b)
-k_green.key = 'green.html'
-content  = k_green.get_contents_as_string()
-print content
-
-k_seminoles = Key(b)
-k_seminoles.key = 'seminoles.html'
-content  = k_seminoles.get_contents_as_string()
-print content
+for testname, teststring in dc_test_content.iteritems():
+    k_cool = Key(b)
+    k_cool.key = '%s.html' % testname
+    content = k_cool.get_contents_as_string()
+    assert content == dc_test_content[testname]
+    print "pull", testname, "OK"
 
 k_precise = Key(b)
 k_precise.key = 'precise.txt'
-content  = k_precise.get_contents_as_string()
-print content
+try:
+    content = k_precise.get_contents_as_string()
+except boto.exception.S3ResponseError, e:
+    print "pull successfully raised 404"
