@@ -17,9 +17,11 @@ class FileStore(object):
         self.buckets = self.get_all_buckets()
 
     def get_bucket_folder(self, bucket_name):
+        print " get_bucket_folder(self, bucket_name)"
         return os.path.join(self.root, bucket_name)
 
     def get_all_buckets(self):
+        print " get_all_buckets(self)"
         buckets = []
         bucket_list = self.redis.smembers(BUCKETS_KEY)
         for bucket in bucket_list:
@@ -28,12 +30,16 @@ class FileStore(object):
         return buckets
 
     def get_bucket(self, bucket_name):
+        print " get_bucket(self, bucket_name)"
         for bucket in self.buckets:
             if bucket.name == bucket_name:
                 return bucket
         return None
 
     def create_bucket(self, bucket_name):
+        print " create_bucket(self, bucket_name)"
+        print "CREATING BUCKET", bucket_name
+
         if bucket_name not in [bucket.name for bucket in self.buckets]:
             creation_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z') 
             self.redis.sadd(BUCKETS_KEY, '%s|%s' % (bucket_name, creation_date))
@@ -45,6 +51,7 @@ class FileStore(object):
         return bucket
 
     def delete_bucket(self, bucket_name):
+        print " delete_bucket(self, bucket_name)"
         bucket = self.get_bucket(bucket_name)
         if not bucket:
             raise NoSuchBucket
@@ -55,6 +62,7 @@ class FileStore(object):
         os.rmdir(os.path.join(self.root, bucket_name))
 
     def get_all_keys(self, bucket, **kwargs):
+        print " get_all_keys(self, bucket, **kwargs)"
         max_keys = kwargs['max_keys']
         pattern = '%s/%s*' % (bucket.name, kwargs['prefix'])
         keys = self.redis.keys(pattern)
@@ -72,6 +80,7 @@ class FileStore(object):
         return BucketQuery(bucket, matches, is_truncated, **kwargs)
 
     def get_item(self, bucket_name, item_name):
+        print " get_item(self, bucket_name, item_name)"
         key_name = os.path.join(bucket_name, item_name)
         dirname = os.path.join(self.root, key_name)
         filename = os.path.join(dirname, CONTENT_FILE)
@@ -87,10 +96,13 @@ class FileStore(object):
         return item
 
     def copy_item(self, src_bucket_name, src_name, bucket_name, name, handler):
+        print " copy_item(self, src_bucket_name, src_name, bucket_name, name, handler)"
         src_key_name = os.path.join(src_bucket_name, src_name)
+        print src_key_name
         src_dirname = os.path.join(self.root, src_key_name)
         src_filename = os.path.join(src_dirname, CONTENT_FILE)
         src_meta = self.redis.hgetall(src_key_name)
+        print src_meta
 
         bucket = self.get_bucket(bucket_name)
         key_name = os.path.join(bucket.name, name)
@@ -98,6 +110,8 @@ class FileStore(object):
         filename = os.path.join(dirname, CONTENT_FILE)
 
         self.redis.delete(key_name)
+        print key_name, src_meta
+        print "<>" * 20
         self.redis.hmset(key_name, src_meta)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
@@ -106,6 +120,7 @@ class FileStore(object):
         return S3Item(key_name, **src_meta)
 
     def store_data(self, bucket, item_name, headers, data):
+        print " store_data(self, bucket, item_name, headers, data)"
         key_name = os.path.join(bucket.name, item_name)
         dirname = os.path.join(self.root, key_name)
         filename = os.path.join(dirname, CONTENT_FILE)
@@ -148,6 +163,7 @@ class FileStore(object):
         return s3_item
 
     def store_item(self, bucket, item_name, handler):
+        print " store_item(self, bucket, item_name, handler)"
         key_name = os.path.join(bucket.name, item_name)
         dirname = os.path.join(self.root, key_name)
         filename = os.path.join(dirname, CONTENT_FILE)
@@ -188,6 +204,7 @@ class FileStore(object):
         return S3Item(key, **metadata)
 
     def delete_item(self, bucket, item_name):
+        print " delete_item(self, bucket, item_name)"
         key_name = os.path.join(bucket.name, item_name)
         dirname = os.path.join(self.root, key_name)
         filename = os.path.join(dirname, CONTENT_FILE)

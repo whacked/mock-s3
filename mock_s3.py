@@ -7,7 +7,8 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 
 from jinja2 import Environment, PackageLoader
-from redis import StrictRedis
+from fakeredis import StrictRedis
+#from redis import StrictRedis
 
 from actions import get_acl, get_item, list_buckets, ls_bucket
 from file_store import FileStore
@@ -18,6 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 class S3Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> GOT"
         parsed_path = urlparse.urlparse(self.path)
         qs = urlparse.parse_qs(parsed_path.query, True)
         host = self.headers['host'].split(':')[0]
@@ -51,24 +53,30 @@ class S3Handler(BaseHTTPRequestHandler):
                     req_type = 'get'
 
         if req_type == 'list_buckets':
+            print "REQ TYPE:::::::::::::::::::::::",  'list_buckets'
             list_buckets(self)
 
         elif req_type == 'ls_bucket':
+            print "REQ TYPE:::::::::::::::::::::::",  'ls_bucket'
             ls_bucket(self, bucket_name, qs)
 
         elif req_type == 'get_acl':
+            print "REQ TYPE:::::::::::::::::::::::",  'get_acl'
             get_acl(self)
 
         elif req_type == 'get':
+            print "REQ TYPE:::::::::::::::::::::::",  'get'
             get_item(self, bucket_name, item_name)
 
         else:
             self.wfile.write('%s: [%s] %s' % (req_type, bucket_name, item_name))
 
     def do_HEAD(self):
+        print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> HEAD"
         return self.do_GET()
 
     def do_PUT(self):
+        print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> PUT"
         parsed_path = urlparse.urlparse(self.path)
         qs = urlparse.parse_qs(parsed_path.query, True)
         host = self.headers['host'].split(':')[0]
@@ -105,10 +113,12 @@ class S3Handler(BaseHTTPRequestHandler):
             req_type = 'copy'
 
         if req_type == 'create_bucket':
+            print "REQ TYPE:::::::::::::::::::::::",  'create_bucket'
             self.server.file_store.create_bucket(bucket_name)
             self.send_response(200)
 
         elif req_type == 'store':
+            print "REQ TYPE:::::::::::::::::::::::",  'store'
             bucket = self.server.file_store.get_bucket(bucket_name)
             if not bucket:
                 # TODO: creating bucket for now, probably should return error
@@ -118,6 +128,7 @@ class S3Handler(BaseHTTPRequestHandler):
             self.send_header('Etag', '"%s"' % item.md5)
 
         elif req_type == 'copy':
+            print "REQ TYPE:::::::::::::::::::::::",  'copy'
             self.server.file_store.copy_item(src_bucket, src_key, bucket_name, item_name, self)
             self.send_response(200)
 
