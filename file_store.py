@@ -98,13 +98,22 @@ class FileStore(object):
         dirname = os.path.join(self.root, key_name)
         filename = os.path.join(dirname, CONTENT_FILE)
 
-        metadata = self.redis.hgetall(key_name)
+        filepath = os.path.join(self.root, bucket_name, item_name)
+        content = open(filepath).read()
+        metadata = {
+            'content_type': 'application/octet-stream', # should read from mimetype
+            'creation_date': get_modtime(filepath), # datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+            'md5': md5.md5(content).hexdigest(),
+            'filename': filepath, # filename
+            'size': len(content),
+        }
 
-        if not metadata:
-            return None
+        #metadata = self.redis.hgetall(key_name)
+        #if not metadata:
+        #    return None
 
         item = S3Item(key_name, **metadata)
-        item.io = open(filename, 'rb')
+        item.io = open(filepath, 'rb')
 
         return item
 
@@ -217,6 +226,7 @@ class FileStore(object):
                 'filename': filepath, # filename
                 'size': size,
             }
+        print metadata
         #self.redis.hmset(key_name, metadata)
 
         return S3Item(key, **metadata)
