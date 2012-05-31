@@ -43,7 +43,9 @@ class FileStore(object):
         if bucket_name not in [bucket.name for bucket in self.buckets]:
             creation_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z') 
             self.redis.sadd(BUCKETS_KEY, '%s|%s' % (bucket_name, creation_date))
-            os.makedirs(os.path.join(self.root, bucket_name))
+            bucket_dir = os.path.join(self.root, bucket_name)
+            if not os.path.exists(bucket_dir):
+                os.makedirs(bucket_dir)
             bucket = Bucket(bucket_name, creation_date)
             self.buckets.append(bucket)
         else:
