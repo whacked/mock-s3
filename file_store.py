@@ -20,7 +20,7 @@ def get_metadata(filepath, **kw):
     return {
         'content_type': kw.get('content_type', 'application/octet-stream'), # should read from mimetype
         'creation_date': kw.get('creation_date', get_modtime(filepath)), # datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
-        'md5': kw.get('md5', hashlib.md5(content).hexdigest()),
+        'md5': "md5" in kw and kw["md5"] or hashlib.md5(content).hexdigest(),
         'filename': filepath, # filename
         'size': kw.get('size', len(content)),
     }
@@ -188,6 +188,10 @@ class FileStore(object):
 
         size = int(headers['content-length'])
         data = handler.rfile.read(size)
+        print "GOT DATA", "= " * 20
+        print data
+        print " = = = = =" * 20
+        print hashlib.md5(data).hexdigest()
 
         with open(filepath, "wb") as f:
             f.write(data)
