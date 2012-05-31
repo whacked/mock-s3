@@ -1,8 +1,8 @@
 import urllib2
-
+from logger import logger
 
 def list_buckets(handler):
-    print " list_buckets(handler)"
+    logger.info(" list_buckets(handler)")
     handler.send_response(200)
     handler.send_header('Content-Type', 'application/xml')
     handler.end_headers()
@@ -11,7 +11,7 @@ def list_buckets(handler):
 
 
 def ls_bucket(handler, bucket_name, qs):
-    print " ls_bucket(handler, bucket_name, qs)"
+    logger.info(" ls_bucket(handler, bucket_name, qs)")
     bucket = handler.server.file_store.get_bucket(bucket_name)
     if bucket:
         kwargs = {
@@ -35,7 +35,7 @@ def ls_bucket(handler, bucket_name, qs):
 
 
 def get_acl(handler):
-    print " get_acl(handler)"
+    logger.info(" get_acl(handler)")
     handler.send_response(200)
     handler.send_header('Content-Type', 'application/xml')
     handler.end_headers()
@@ -44,7 +44,7 @@ def get_acl(handler):
 
 
 def load_from_aws(handler, bucket_name, item_name):
-    print " load_from_aws(handler, bucket_name, item_name)"
+    logger.info(" load_from_aws(handler, bucket_name, item_name)")
     bucket = handler.server.file_store.get_bucket(bucket_name)
     aws_url = "http://s3.amazonaws.com/%s/%s" % (bucket_name, item_name)
     response = urllib2.urlopen(aws_url)
@@ -54,7 +54,7 @@ def load_from_aws(handler, bucket_name, item_name):
 
 
 def get_item(handler, bucket_name, item_name):
-    print " get_item(handler, bucket_name, item_name)"
+    logger.info(" get_item(handler, bucket_name, item_name)")
     item = handler.server.file_store.get_item(bucket_name, item_name)
     if not item and handler.server.pull_from_aws:
             item = load_from_aws(handler, bucket_name, item_name)

@@ -5,6 +5,7 @@ from datetime import datetime
 from errors import BucketNotEmpty, NoSuchBucket
 from models import Bucket, BucketQuery, S3Item
 
+from logger import logger
 
 BUCKETS_KEY = 'mock-s3:buckets'
 CONTENT_FILE = '.mocks3_content'
@@ -39,18 +40,18 @@ class FileStore(object):
             self._dc[bucket.name] = {}
             for root, lsdir, lsfile in os.walk(os.path.join(self.root, bucket.name)):
                 for f in lsfile:
-                    self._dc[bucket.name][f] = get_metadata(os.path.join(self.root, bucket.name, f))
+                    self._dc[bucket.name][f] = get_metadata(os.path.join(root, f))
 
     def get_bucket_folder(self, bucket_name):
-        print " get_bucket_folder(self, bucket_name)"
+        logger.info(" get_bucket_folder(self, bucket_name)")
         return os.path.join(self.root, bucket_name)
 
     def get_all_buckets(self):
-        print " get_all_buckets(self)"
+        logger.info(" get_all_buckets(self)")
         return map(lambda p: Bucket(p, get_modtime(self.root, p)), os.listdir(self.root))
 
     def get_bucket(self, bucket_name):
-        print " get_bucket(self, bucket_name)"
+        logger.info(" get_bucket(self, bucket_name)")
         if bucket_name in self._dc:
             return Bucket(bucket_name, get_modtime(os.path.join(self.root, bucket_name)))
         return None
@@ -70,7 +71,7 @@ class FileStore(object):
         return bucket
 
     def delete_bucket(self, bucket_name):
-        print " delete_bucket(self, bucket_name)"
+        logger.info(" delete_bucket(self, bucket_name)")
         bucket = self.get_bucket(bucket_name)
         if not bucket:
             raise NoSuchBucket
@@ -81,14 +82,13 @@ class FileStore(object):
         os.rmdir(os.path.join(self.root, bucket_name))
 
     def get_all_keys(self, bucket, **kwargs):
-        print " get_all_keys(self, bucket, **kwargs)"
+        logger.info(" get_all_keys(self, bucket, **kwargs)")
         max_keys = kwargs['max_keys']
         pattern = '%s/%s*' % (bucket.name, kwargs['prefix'])
         pattern = "%s*" % kwargs["prefix"]
 
         keys = filter(lambda k: fnmatch.fnmatch(k, pattern), self._dc[bucket.name].keys())
         keys.sort()
-        print self._dc
 
         is_truncated = False
         if len(keys) > max_keys:
@@ -96,14 +96,13 @@ class FileStore(object):
             is_truncated = True
         matches = []
         for key in keys:
-            print "FOUND KEY", key
             metadata = get_metadata(os.path.join(self.root, bucket.name, key))
             matches.append(S3Item(key, **metadata))
 
         return BucketQuery(bucket, matches, is_truncated, **kwargs)
 
     def get_item(self, bucket_name, item_name):
-        print " get_item(self, bucket_name, item_name)"
+        logger.info(" get_item(self, bucket_name, item_name)")
         key_name = os.path.join(bucket_name, item_name)
         #dirname = os.path.join(self.root, key_name)
         #filename = os.path.join(dirname, CONTENT_FILE)
@@ -121,9 +120,9 @@ class FileStore(object):
         return item
 
     def copy_item(self, src_bucket_name, src_name, tgt_bucket_name, tgt_name, handler):
-        print " copy_item(self, src_bucket_name = %s, src_name = %s, tgt_bucket_name = %s, tgt_name = %s, handler)" % (src_bucket_name, src_name, tgt_bucket_name, tgt_name)
+        logger.info(" copy_item(self, src_bucket_name = %s, src_name = %s, tgt_bucket_name = %s, tgt_name = %s, handler)" % (src_bucket_name, src_name, tgt_bucket_name, tgt_name))
         src_key_name = os.path.join(src_bucket_name, src_name)
-        print src_key_name
+        
         src_dirname = os.path.join(self.root, src_key_name)
         src_filename = os.path.join(src_dirname, CONTENT_FILE)
         src_meta = self._dc[src_bucket_name][src_name]
@@ -139,15 +138,15 @@ class FileStore(object):
         tgt_bucket_dir = os.path.join(self.root, tgt_bucket.name)
         if not os.path.exists(tgt_bucket_dir):
             os.mkdir(tgt_bucket_dir)
-        #shutil.copy(src_filename, filename)
-        print src_filepath , ">>>>>>>>", tgt_filepath
+        
+        logger.info("COPY: %s ---> %s" % (src_filepath , tgt_filepath))
         shutil.copy(src_filepath, tgt_filepath)
         self._dc[tgt_bucket.name][tgt_name] = get_metadata(tgt_filepath)
 
         return S3Item(tgt_name, **src_meta)
 
     def store_data(self, bucket, item_name, headers, data):
-        print " store_data(self, bucket, item_name, headers, data)"
+        logger.info(" store_data(self, bucket, item_name, headers, data)")
         key_name = os.path.join(bucket.name, item_name)
         dirname = os.path.join(self.root, key_name)
         filename = os.path.join(dirname, CONTENT_FILE)
@@ -175,7 +174,7 @@ class FileStore(object):
         return s3_item
 
     def store_item(self, bucket, item_name, handler):
-        print " store_item(self, bucket = %s, item_name = %s, handler)" % (bucket.name, item_name)
+        logger.info(" store_item(self, bucket = %s, item_name = %s, handler)" % (bucket.name, item_name))
 
         filepath = os.path.join(self.root, bucket.name, item_name)
 
@@ -185,10 +184,6 @@ class FileStore(object):
 
         size = int(headers['content-length'])
         data = handler.rfile.read(size)
-        print "GOT DATA", "= " * 20
-        print data
-        print " = = = = =" * 20
-        print hashlib.md5(data).hexdigest()
 
         with open(filepath, "wb") as f:
             f.write(data)
@@ -204,6 +199,6 @@ class FileStore(object):
         return S3Item(key, **metadata)
 
     def delete_item(self, bucket, item_name):
-        print " delete_item(self, bucket, item_name)"
+        logger.info(" delete_item(self, bucket, item_name)")
         os.unlink(os.path.join(self.root, bucket.name, item_name))
         del self._dc[bucket.name][item_name]

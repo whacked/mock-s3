@@ -15,6 +15,8 @@ from file_store import FileStore
 
 logging.basicConfig(level=logging.INFO)
 
+from logger import logger
+
 
 class S3Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -51,19 +53,19 @@ class S3Handler(BaseHTTPRequestHandler):
                     req_type = 'get'
 
         if req_type == 'list_buckets':
-            print "REQ TYPE:::::::::::::::::::::::",  'list_buckets'
+            logger.info("REQ TYPE::::::::::::::::::::::: list_buckets")
             list_buckets(self)
 
         elif req_type == 'ls_bucket':
-            print "REQ TYPE:::::::::::::::::::::::",  'ls_bucket'
+            logger.info("REQ TYPE::::::::::::::::::::::: ls_bucket")
             ls_bucket(self, bucket_name, qs)
 
         elif req_type == 'get_acl':
-            print "REQ TYPE:::::::::::::::::::::::",  'get_acl'
+            logger.info("REQ TYPE::::::::::::::::::::::: get_acl")
             get_acl(self)
 
         elif req_type == 'get':
-            print "REQ TYPE:::::::::::::::::::::::",  'get'
+            logger.info("REQ TYPE::::::::::::::::::::::: get")
             get_item(self, bucket_name, item_name)
 
         else:
@@ -109,12 +111,12 @@ class S3Handler(BaseHTTPRequestHandler):
             req_type = 'copy'
 
         if req_type == 'create_bucket':
-            print "REQ TYPE:::::::::::::::::::::::",  'create_bucket'
+            logger.info("REQ TYPE::::::::::::::::::::::: create_bucket")
             self.server.file_store.create_bucket(bucket_name)
             self.send_response(200)
 
         elif req_type == 'store':
-            print "REQ TYPE:::::::::::::::::::::::",  'store'
+            logger.info("REQ TYPE::::::::::::::::::::::: store")
             bucket = self.server.file_store.get_bucket(bucket_name)
             if not bucket:
                 # TODO: creating bucket for now, probably should return error
@@ -124,7 +126,7 @@ class S3Handler(BaseHTTPRequestHandler):
             self.send_header('Etag', '"%s"' % item.md5)
 
         elif req_type == 'copy':
-            print "REQ TYPE:::::::::::::::::::::::",  'copy'
+            logger.info("REQ TYPE::::::::::::::::::::::: copy")
             self.server.file_store.copy_item(src_bucket, src_key, bucket_name, item_name, self)
             self.send_response(200)
 
