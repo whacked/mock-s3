@@ -49,13 +49,16 @@ class FileStore(object):
 
     def create_bucket(self, bucket_name):
         if bucket_name not in [bucket.name for bucket in self.buckets]:
-            creation_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z') 
-            self.redis.sadd(BUCKETS_KEY, '%s|%s' % (bucket_name, creation_date))
+            #self.redis.sadd(BUCKETS_KEY, '%s|%s' % (bucket_name, creation_date))
             bucket_dir = os.path.join(self.root, bucket_name)
-            if not os.path.exists(bucket_dir):
+            if os.path.exists(bucket_dir):
+                creation_date = get_modtime(bucket_dir)
+            else:
                 os.makedirs(bucket_dir)
-            bucket = Bucket(bucket_name, creation_date)
-            self.buckets.append(bucket)
+                creation_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z') 
+                self._dc[bucket_name] = {}
+                bucket = Bucket(bucket_name, creation_date)
+                self.buckets.append(bucket)
         else:
             bucket = self.get_bucket(bucket_name)
         return bucket
@@ -178,9 +181,11 @@ class FileStore(object):
         dirname = os.path.join(self.root, key_name)
         filename = os.path.join(dirname, CONTENT_FILE)
 
+        filepath = os.path.join(self.root, bucket.name, item_name)
+
         metadata = None
-        if self.redis.exists(key_name):
-            metadata = self.redis.hgetall(key_name)
+        #if self.redis.exists(key_name):
+        #    metadata = self.redis.hgetall(key_name)
 
         m = md5.new()
 
@@ -190,26 +195,29 @@ class FileStore(object):
 
         size = int(headers['content-length'])
         data = handler.rfile.read(size)
-        m.update(data)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-        with open(filename, 'wb') as f:
+        #if not os.path.exists(dirname):
+        #    os.makedirs(dirname)
+        #with open(filename, 'wb') as f:
+        #    f.write(data)
+
+        with open(filepath, "wb") as f:
             f.write(data)
 
+        m.update(data)
         if metadata:
             metadata['md5'] = m.hexdigest()
-            metadata['modified_date'] = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')
+            metadata['modified_date'] = get_modtime(filepath) # datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')
             metadata['content_type'] = headers['content-type']
             metadata['size'] = size
         else:
             metadata = {
                 'content_type': headers['content-type'],
-                'creation_date': datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+                'creation_date': get_modtime(filepath), # datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
                 'md5': m.hexdigest(),
-                'filename': filename,
+                'filename': filepath, # filename
                 'size': size,
             }
-        self.redis.hmset(key_name, metadata)
+        #self.redis.hmset(key_name, metadata)
 
         return S3Item(key, **metadata)
 
