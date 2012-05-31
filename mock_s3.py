@@ -7,8 +7,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
 
 from jinja2 import Environment, PackageLoader
-from fakeredis import StrictRedis
-#from redis import StrictRedis
+#from fakeredis import StrictRedis
 
 from actions import get_acl, get_item, list_buckets, ls_bucket
 from file_store import FileStore
@@ -19,7 +18,6 @@ logging.basicConfig(level=logging.INFO)
 
 class S3Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> GOT"
         parsed_path = urlparse.urlparse(self.path)
         qs = urlparse.parse_qs(parsed_path.query, True)
         host = self.headers['host'].split(':')[0]
@@ -72,11 +70,9 @@ class S3Handler(BaseHTTPRequestHandler):
             self.wfile.write('%s: [%s] %s' % (req_type, bucket_name, item_name))
 
     def do_HEAD(self):
-        print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> HEAD"
         return self.do_GET()
 
     def do_PUT(self):
-        print ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> PUT"
         parsed_path = urlparse.urlparse(self.path)
         qs = urlparse.parse_qs(parsed_path.query, True)
         host = self.headers['host'].split(':')[0]
@@ -159,17 +155,18 @@ if __name__ == '__main__':
                         default=10001, type=int,
                         help='Port to run server on.')
     parser.add_argument('--root', dest='root', action='store',
-                        default='%s/s3store' % os.environ['HOME'],
+                        #default='%s/s3store' % os.environ['HOME'],
+                        default='/tmp/s3store',
                         help='Defaults to $HOME/s3store.')
     parser.add_argument('--pull-from-aws', dest='pull_from_aws', action='store_true',
                         default=False,
                         help='Pull non-existent keys from aws.')
     args = parser.parse_args()
 
-    redis_client = StrictRedis()
+    #redis_client = StrictRedis()
 
     server = ThreadedHTTPServer((args.hostname, args.port), S3Handler)
-    server.set_file_store(FileStore(args.root, redis_client))
+    server.set_file_store(FileStore(args.root))
     server.set_mock_hostname(args.hostname)
     server.set_pull_from_aws(args.pull_from_aws)
     server.set_template_env(Environment(loader=PackageLoader('mock_s3', 'templates')))
