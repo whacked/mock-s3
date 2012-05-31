@@ -13,17 +13,17 @@ def get_modtime(*p):
     return str(datetime.fromtimestamp(os.stat(os.path.join(*p)).st_mtime))
 
 def get_metadata(filepath, **kw):
-    if "md5" not in kw or "size" not in kw:
-        content = open(filepath).read()
+    rtn = {"filename": filepath,
+           'content_type': kw.get('content_type', 'application/octet-stream'), # should read from mimetype
+           'creation_date': kw.get('creation_date', get_modtime(filepath)),
+            }
+    if "md5" in kw and "size" in kw:
+        rtn.update({"md5": kw["md5"], "size": kw["size"]})
     else:
-        content = None
-    return {
-        'content_type': kw.get('content_type', 'application/octet-stream'), # should read from mimetype
-        'creation_date': kw.get('creation_date', get_modtime(filepath)), # datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
-        'md5': "md5" in kw and kw["md5"] or hashlib.md5(content).hexdigest(),
-        'filename': filepath, # filename
-        'size': kw.get('size', len(content)),
-    }
+        content = open(filepath).read()
+        rtn["md5"] = hashlib.md5(content).hexdigest()
+        rtn["size"] = len(content)
+    return rtn
 
 class FileStore(object):
     
@@ -45,12 +45,9 @@ class FileStore(object):
         print " get_bucket_folder(self, bucket_name)"
         return os.path.join(self.root, bucket_name)
 
-# TODO: FIXME = buckets
     def get_all_buckets(self):
         print " get_all_buckets(self)"
-        buckets = []
-        buckets.extend(map(lambda p: Bucket(p, get_modtime(self.root, p)), os.listdir(self.root)))
-        return buckets
+        return map(lambda p: Bucket(p, get_modtime(self.root, p)), os.listdir(self.root))
 
     def get_bucket(self, bucket_name):
         print " get_bucket(self, bucket_name)"
@@ -196,12 +193,13 @@ class FileStore(object):
         with open(filepath, "wb") as f:
             f.write(data)
 
-        self._dc[bucket.name][key_name] = get_metadata(filepath,
+        metadata = get_metadata(filepath,
                 content_type = headers['content-type'],
                 creation_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
                 md5 = hashlib.md5(data).hexdigest(),
                 size = int(headers['content-length']),
                 )
+        self._dc[bucket.name][item_name] = metadata
 
         return S3Item(key, **metadata)
 

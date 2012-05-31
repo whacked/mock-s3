@@ -6,9 +6,8 @@ def list_buckets(handler):
     handler.send_response(200)
     handler.send_header('Content-Type', 'application/xml')
     handler.end_headers()
-    buckets = handler.server.file_store.buckets
     template = handler.server.env.get_template('buckets.xml')
-    handler.wfile.write(template.render(buckets=buckets))
+    handler.wfile.write(template.render(buckets=handler.server.file_store.get_all_buckets()))
 
 
 def ls_bucket(handler, bucket_name, qs):
