@@ -8,7 +8,6 @@ from models import Bucket, BucketQuery, S3Item
 from logger import logger
 
 BUCKETS_KEY = 'mock-s3:buckets'
-CONTENT_FILE = '.mocks3_content'
 
 def get_modtime(*p):
     return str(datetime.fromtimestamp(os.stat(os.path.join(*p)).st_mtime))
@@ -28,6 +27,14 @@ def get_metadata(filepath, **kw):
 
 class FileStore(object):
     
+    def populate_keys(self):
+        for bucket in self.get_all_buckets():
+            self._dc[bucket.name] = {}
+            for root, lsdir, lsfile in os.walk(os.path.join(self.root, bucket.name)):
+                for f in lsfile:
+                    filepath = os.path.join(root, f)
+                    key = filepath[len(os.path.join(self.root, bucket.name))+1:]
+                    self._dc[bucket.name][key] = get_metadata(filepath)
 
     def __init__(self, root):
         if not os.path.exists(root):
@@ -36,11 +43,7 @@ class FileStore(object):
 
         self._dc = {}
         # pre-populate keys if necessary
-        for bucket in self.get_all_buckets():
-            self._dc[bucket.name] = {}
-            for root, lsdir, lsfile in os.walk(os.path.join(self.root, bucket.name)):
-                for f in lsfile:
-                    self._dc[bucket.name][f] = get_metadata(os.path.join(root, f))
+        self.populate_keys()
 
     def get_bucket_folder(self, bucket_name):
         logger.info(" get_bucket_folder(self, bucket_name)")
@@ -48,7 +51,7 @@ class FileStore(object):
 
     def get_all_buckets(self):
         logger.info(" get_all_buckets(self)")
-        return map(lambda p: Bucket(p, get_modtime(self.root, p)), os.listdir(self.root))
+        return map(lambda p: Bucket(p, get_modtime(self.root, p)), [d for d in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, d))])
 
     def get_bucket(self, bucket_name):
         logger.info(" get_bucket(self, bucket_name)")
@@ -103,9 +106,6 @@ class FileStore(object):
 
     def get_item(self, bucket_name, item_name):
         logger.info(" get_item(self, bucket_name, item_name)")
-        key_name = os.path.join(bucket_name, item_name)
-        #dirname = os.path.join(self.root, key_name)
-        #filename = os.path.join(dirname, CONTENT_FILE)
 
         filepath = os.path.join(self.root, bucket_name, item_name)
         if not os.path.exists(filepath):
@@ -114,7 +114,7 @@ class FileStore(object):
         #if not metadata:
         #    return None
 
-        item = S3Item(key_name, **metadata)
+        item = S3Item(item_name, **metadata)
         item.io = open(filepath, 'rb')
 
         return item
@@ -123,14 +123,9 @@ class FileStore(object):
         logger.info(" copy_item(self, src_bucket_name = %s, src_name = %s, tgt_bucket_name = %s, tgt_name = %s, handler)" % (src_bucket_name, src_name, tgt_bucket_name, tgt_name))
         src_key_name = os.path.join(src_bucket_name, src_name)
         
-        src_dirname = os.path.join(self.root, src_key_name)
-        src_filename = os.path.join(src_dirname, CONTENT_FILE)
         src_meta = self._dc[src_bucket_name][src_name]
 
         tgt_bucket = self.get_bucket(tgt_bucket_name)
-        key_name = os.path.join(tgt_bucket.name, tgt_name)
-        dirname = os.path.join(self.root, key_name)
-        filename = os.path.join(dirname, CONTENT_FILE)
 
         src_filepath = os.path.join(self.root, src_bucket_name, src_name)
         tgt_filepath = os.path.join(self.root, tgt_bucket.name, tgt_name)
@@ -147,9 +142,6 @@ class FileStore(object):
 
     def store_data(self, bucket, item_name, headers, data):
         logger.info(" store_data(self, bucket, item_name, headers, data)")
-        key_name = os.path.join(bucket.name, item_name)
-        dirname = os.path.join(self.root, key_name)
-        filename = os.path.join(dirname, CONTENT_FILE)
 
         filepath = os.path.join(self.root, bucket.name, item_name)
 
@@ -158,12 +150,10 @@ class FileStore(object):
             lower_headers[key.lower()] = headers[key]
         headers = lower_headers
 
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
         with open(filename, 'wb') as f:
             f.write(data)
 
-        self._dc[bucket.name][key_name] = get_metadata(filepath,
+        self._dc[bucket.name][item_name] = get_metadata(filepath,
                 creation_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
                 md5 = hashlib.md5(data).hexdigest(),
                 size = int(headers['content-length']),
