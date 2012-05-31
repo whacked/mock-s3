@@ -10,10 +10,17 @@ from models import Bucket, BucketQuery, S3Item
 BUCKETS_KEY = 'mock-s3:buckets'
 CONTENT_FILE = '.mocks3_content'
 
+def get_modtime(*p):
+    return str(datetime.fromtimestamp(os.stat(os.path.join(*p)).st_mtime))
+
 class FileStore(object):
     def __init__(self, root, redis):
+        if not os.path.exists(root):
+            os.mkdir(root)
         self.root = root
         self.redis = redis
+
+        self._dc = {}
         self.buckets = self.get_all_buckets()
 
     def get_bucket_folder(self, bucket_name):
@@ -23,10 +30,14 @@ class FileStore(object):
     def get_all_buckets(self):
         print " get_all_buckets(self)"
         buckets = []
-        bucket_list = self.redis.smembers(BUCKETS_KEY)
-        for bucket in bucket_list:
-            bucket_data = bucket.split('|')
-            buckets.append(Bucket(bucket_data[0], bucket_data[1]))
+        #bucket_list = self.redis.smembers(BUCKETS_KEY)
+        #for bucket in bucket_list:
+        #    bucket_data = bucket.split('|')
+        #    buckets.append(Bucket(bucket_data[0], bucket_data[1]))
+        buckets.extend(map(lambda p: Bucket(p, get_modtime(self.root, p)), os.listdir(self.root)))
+        #for root, lsdir, lsfile in os.walk(self.root):
+        #    for f in lsfile:
+        #        self._dc[os.path.join(self.root, f)] = True
         return buckets
 
     def get_bucket(self, bucket_name):
@@ -37,9 +48,6 @@ class FileStore(object):
         return None
 
     def create_bucket(self, bucket_name):
-        print " create_bucket(self, bucket_name)"
-        print "CREATING BUCKET", bucket_name
-
         if bucket_name not in [bucket.name for bucket in self.buckets]:
             creation_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z') 
             self.redis.sadd(BUCKETS_KEY, '%s|%s' % (bucket_name, creation_date))
