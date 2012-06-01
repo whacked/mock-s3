@@ -6,15 +6,19 @@ from errors import BucketNotEmpty, NoSuchBucket
 from models import Bucket, BucketQuery, S3Item
 
 from logger import logger
+import mimetypes
 
 BUCKETS_KEY = 'mock-s3:buckets'
+# for files where we cannot guess the mimetype,
+# return anything above this size as application/octet-stream
+# return anything below this size as text/plain
+THRESHOLD_DOWNLOAD = 10**5
 
 def get_modtime(*p):
     return str(datetime.fromtimestamp(os.stat(os.path.join(*p)).st_mtime))
 
 def get_metadata(filepath, **kw):
     rtn = {"filename": filepath,
-           'content_type': kw.get('content_type', 'application/octet-stream'), # should read from mimetype
            'creation_date': kw.get('creation_date', get_modtime(filepath)),
             }
     if "md5" in kw and "size" in kw:
@@ -23,6 +27,15 @@ def get_metadata(filepath, **kw):
         content = open(filepath).read()
         rtn["md5"] = hashlib.md5(content).hexdigest()
         rtn["size"] = len(content)
+
+    guess_mimetype = kw.get('content_type') or mimetypes.guess_type(filepath)[0]
+    if guess_mimetype is None:
+        if rtn["size"] < THRESHOLD_DOWNLOAD:
+            guess_mimetype = "text/plain"
+        else:
+            guess_mimetype = "application/octet-stream"
+
+    rtn['content_type'] = kw.get('content_type', ), # should read from mimetype
     return rtn
 
 class FileStore(object):
