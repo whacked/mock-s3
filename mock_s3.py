@@ -160,6 +160,12 @@ if __name__ == '__main__':
                         #default='%s/s3store' % os.environ['HOME'],
                         default='/tmp/s3store',
                         help='Defaults to $HOME/s3store.')
+    parser.add_argument('--exclude-bucket', dest='bucket_excluder', action='store',
+                        default='',
+                        help='File matching pattern to exclude buckets.')
+    parser.add_argument('--exclude-key', dest='key_excluder', action='store',
+                        default='',
+                        help='File matching pattern to exclude keys.')
     parser.add_argument('--pull-from-aws', dest='pull_from_aws', action='store_true',
                         default=False,
                         help='Pull non-existent keys from aws.')
@@ -168,7 +174,7 @@ if __name__ == '__main__':
     #redis_client = StrictRedis()
 
     server = ThreadedHTTPServer((args.hostname, args.port), S3Handler)
-    server.set_file_store(FileStore(args.root))
+    server.set_file_store(FileStore(args.root, args.bucket_excluder, args.key_excluder))
     server.set_mock_hostname(args.hostname)
     server.set_pull_from_aws(args.pull_from_aws)
     server.set_template_env(Environment(loader=PackageLoader('mock_s3', 'templates')))
