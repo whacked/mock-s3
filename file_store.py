@@ -43,16 +43,28 @@ class FileStore(object):
     def populate_keys(self):
         for bucket in self.get_all_buckets():
             self._dc[bucket.name] = {}
+            # root directory is special case
+            if bucket.name == ".":
+                lsfile = filter(lambda f: not fnmatch.fnmatch(f, self.key_excluder), os.listdir(self.root))
+                for key in lsfile:
+                    filepath = os.path.join(self.root, key)
+                    if os.path.isdir(filepath): continue
+                    self._dc[bucket.name][key] = get_metadata(filepath)
+                continue
             for root, lsdir, lsfile in os.walk(os.path.join(self.root, bucket.name)):
                 for f in lsfile:
                     filepath = os.path.join(root, f)
                     key = filepath[len(os.path.join(self.root, bucket.name))+1:]
+                    if fnmatch.fnmatch(key, self.key_excluder):
+                        continue
                     self._dc[bucket.name][key] = get_metadata(filepath)
 
-    def __init__(self, root):
+    def __init__(self, root, bucket_excluder = None, key_excluder = None):
         if not os.path.exists(root):
             os.mkdir(root)
         self.root = root
+        self.bucket_excluder = bucket_excluder
+        self.key_excluder = key_excluder
 
         self._dc = {}
         # pre-populate keys if necessary
@@ -64,7 +76,8 @@ class FileStore(object):
 
     def get_all_buckets(self):
         logger.info(" get_all_buckets(self)")
-        return map(lambda p: Bucket(p, get_modtime(self.root, p)), [d for d in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, d))])
+        # force-add root directory "."
+        return map(lambda p: Bucket(p, get_modtime(self.root, p)), ["."] + [d for d in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, d)) and not fnmatch.fnmatch(d, self.bucket_excluder)])
 
     def get_bucket(self, bucket_name):
         logger.info(" get_bucket(self, bucket_name)")
